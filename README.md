@@ -1,15 +1,19 @@
 # AI Vagas 💼🤖
 
-Uma solução inteligente e interativa de Machine Learning ponta a ponta para raspagem de vagas brasileiras do LinkedIn, cálculo de compatibilidade de currículos (Match Score) e análise fina de requisitos do candidato (Fit / No Fit) identificando as competências faltantes (Gaps).
+Uma solução inteligente e interativa de Machine Learning ponta a ponta para cálculo de compatibilidade de currículos (Match Score), classificação de adequação (*Fit* / *No Fit*) e análise de lacunas (*Gaps*) de competências técnicas.
+
+O sistema foi refatorado para operar sobre bases de dados estáticas de referência em escala de mercado (datasets de 124 mil vagas e competências reais), oferecendo buscas rápidas pré-filtradas por banco e cruzamento semântico de currículos.
 
 ---
 
 ## 🌟 Recursos e Funcionalidades
 
-- **Coleta Automatizada (Scraper):** Extrai vagas de emprego em tempo real do LinkedIn no Brasil usando **Playwright** com técnicas anti-bloqueio (User-Agent rotativo e suporte a cookie de sessão `li_at`).
-- **Triagem Semântica (Embeddings):** Compara o currículo com todas as vagas no banco de dados SQLite usando similaridade de cosseno de embeddings gerados pela **API do Gemini** (com **fallback local via TF-IDF**).
-- **Análise Avançada de Fit (LLM):** Utiliza o modelo **Gemini 1.5 Flash** para classificar as Top-5 vagas em *Fit* ou *No Fit*, mapear as competências presentes e apontar as **skills faltantes** com dicas personalizadas de ajuste no currículo.
-- **Painel Streamlit Premium:** Interface gráfica moderna baseada em **Glassmorphism** com suporte a upload de currículos em formato PDF e colagem direta de texto.
+- **Matching em Escala com Dataset Real**: O motor busca vagas reais pré-filtradas da base de dados **LinkedIn Job Postings 2023-2024 (Kaggle)**, cruzando o perfil do candidato com milhares de descrições estruturadas.
+- **Mapeamento de Competências Reais**: Integração com o **Job Skill Set Dataset (Kaggle)**, vinculando as competências oficiais requeridas por cargo direto ao ID de cada vaga via banco de dados.
+- **Calibração do Classificador**: Limiar de aderência calibrado localmente com o dataset **Resume-JD-Match (HuggingFace)** para otimização da precisão e sensibilidade da classificação local.
+- **Triagem Semântica Otimizada**: Compara o currículo com as vagas no banco de dados SQLite usando similaridade de cosseno de embeddings gerados pela **API do Gemini** (com **fallback local via TF-IDF**).
+- **Identificação Dinâmica de Gaps (Skills Faltantes)**: O matcher analisa quais das competências exigidas pela vaga estão presentes ou ausentes no currículo do usuário, gerando dicas dinâmicas para otimização.
+- **Interface Streamlit Premium**: Painel visual moderno com visual Glassmorphism, suporte a upload de currículo em PDF, preenchimento direto e barra de progresso interativa para importação rápida de datasets.
 
 ---
 
@@ -19,17 +23,22 @@ Uma solução inteligente e interativa de Machine Learning ponta a ponta para ra
 ai-vagas/
 ├── .env                  # Chaves de API e configurações locais (ignorado no Git)
 ├── .gitignore            # Proteção contra commit de chaves e dados locais
-├── requirements.txt      # Dependências em Python
+├── requirements.txt      # Dependências em Python (sem playwright)
 ├── README.md             # Documentação principal
 ├── data/
-│   └── vagas.db          # Banco de dados local SQLite contendo as vagas
+│   ├── vagas.db          # Banco de dados local SQLite contendo as vagas e competências
+│   ├── postings.csv      # Dataset de vagas do LinkedIn (Kaggle - 516MB, ignorado no Git)
+│   ├── job_skills.csv    # Dataset de mapeamento de competências (Kaggle - 672MB, ignorado no Git)
+│   ├── train-00000-of-00001.parquet  # Parquet de treino do Resume-JD-Match (HuggingFace, ignorado no Git)
+│   └── test-00000-of-00001.parquet   # Parquet de teste do Resume-JD-Match (HuggingFace, ignorado no Git)
 └── src/
-    ├── app.py            # Interface gráfica Streamlit
+    ├── app.py            # Interface gráfica Streamlit Premium com importador interativo
     ├── config.py         # Configuração e variáveis do .env
-    ├── matcher.py        # Motor de inteligência artificial e scoring
-    ├── scraper.py        # Coletor de vagas públicas no LinkedIn
-    ├── seed_data.py      # Carga de mock data com vagas brasileiras de teste
-    └── verify_matcher.py  # Script de teste automatizado local do pipeline
+    ├── database.py       # Gerenciador do SQLite com importador por streaming de alto desempenho
+    ├── matcher.py        # Motor de matching (Gemini / TF-IDF local) com join de competências
+    ├── seed_data.py      # Carga de mock data com vagas estruturadas e competências associadas
+    ├── calibrate.py      # Estudo de calibração de limiares offline usando os parquets locais
+    └── verify_matcher.py  # Script de teste funcional rápido do pipeline
 ```
 
 ---
@@ -40,7 +49,7 @@ ai-vagas/
 Certifique-se de ter o Python 3.10+ instalado em seu sistema.
 
 ### 2. Clonar e Inicializar o Ambiente
-Caso tenha clonado este repositório, configure o ambiente virtual:
+Configure o ambiente virtual local:
 ```bash
 # Criar ambiente virtual
 python -m venv .venv
@@ -53,34 +62,23 @@ source .venv/bin/activate
 
 # Instalar dependências
 pip install -r requirements.txt
-
-# Instalar navegadores necessários para o Playwright
-playwright install chromium
 ```
 
 ### 3. Configurar Variáveis de Ambiente
 Crie um arquivo `.env` na raiz do projeto seguindo o modelo abaixo:
 ```ini
-# Chave da API do Gemini (Obtenha em: https://aistudio.google.com/)
+# Chave da API do Gemini (Opcional - Obtenha em: https://aistudio.google.com/)
+# Se ausente, o sistema opera de forma local off-line via TF-IDF calibrado
 GEMINI_API_KEY=SUA_CHAVE_DO_GEMINI
-
-# Cookie de Sessão do LinkedIn para Evitar Bloqueios (li_at) - Opcional
-LINKEDIN_LI_AT=SEU_COOKIE_LI_AT
-
-# Configurações do Scraper de Vagas
-LINKEDIN_LOCATION=Brasil
-DEFAULT_KEYWORDS=Machine Learning, Cientista de Dados, Desenvolvedor Python
-MAX_JOBS_TO_SCRAPE=30
-DELAY_BETWEEN_REQUESTS_SEC=2
 
 # Banco de dados
 DATABASE_PATH=data/vagas.db
 ```
 
-*Nota: Se você não configurar a `GEMINI_API_KEY`, o aplicativo funcionará perfeitamente utilizando o motor local de fallback por TF-IDF.*
-
-### 4. Popular o Banco com Vagas de Teste
-Para rodar a ferramenta sem precisar raspar dados do LinkedIn imediatamente, carregue as vagas simuladas em português:
+### 4. Popular o Banco com Dados do Kaggle
+1. Baixe os datasets do Kaggle: **LinkedIn Job Postings 2023-2024** e **Job Skill Set Dataset**.
+2. Salve os arquivos `postings.csv` e `job_skills.csv` na pasta `data/`.
+3. Inicie o Streamlit (passo 5) e utilize o painel lateral **"Importador de Vagas"** para carregar os registros no banco de dados SQLite local, ou rode o seed de teste rápido:
 ```bash
 python src/seed_data.py
 ```
@@ -94,9 +92,16 @@ Acesse no navegador: `http://localhost:8501`.
 
 ---
 
-## 🧪 Executando Testes de Verificação
-Para testar a inteligência de matching no terminal, execute:
+## 🧪 Calibração e Testes
+
+### 1. Calibrar Limiar de Similaridade
+Para recalcular a tabela comparativa de precisão/recall de thresholds de TF-IDF e redefinir o limiar ótimo do matcher offline usando os parquets do HuggingFace, execute:
+```bash
+python src/calibrate.py
+```
+
+### 2. Testar Pipeline de Matching
+Para rodar uma verificação ponta a ponta do cruzamento de currículos com vagas e competências locais no terminal, execute:
 ```bash
 python src/verify_matcher.py
 ```
-O script simulará um perfil e exibirá o ranqueamento das vagas com os scores e as competências identificadas.
