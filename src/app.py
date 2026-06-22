@@ -315,7 +315,9 @@ if resume_text:
                             </div>
                         </div>
                         """
-                        st.markdown(card_html, unsafe_allow_html=True)
+                        # Limpa espaços no início e fim de cada linha para evitar que o markdown interprete como bloco de código
+                        card_html_clean = "\n".join([line.strip() for line in card_html.split("\n")])
+                        st.markdown(card_html_clean, unsafe_allow_html=True)
 else:
     st.info("📄 Insira as informações do seu currículo acima ou faça upload do PDF para ver as recomendações de vagas.")
 
