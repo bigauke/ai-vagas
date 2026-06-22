@@ -64,6 +64,26 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+> **Observação para usuários macOS:**
+> Em algumas instalações do macOS, o comando `python` não está disponível por padrão. Nesse caso, utilize:
+>
+> ```bash
+> python3 -m venv .venv
+> source .venv/bin/activate
+> python -m pip install --upgrade pip
+> python -m pip install -r requirements.txt
+> ```
+>
+> Para verificar se o ambiente virtual foi ativado corretamente:
+>
+> ```bash
+> which python
+> which pip
+> ```
+>
+> Ambos os caminhos devem apontar para o diretório `.venv`.
+
+
 ### 3. Configurar Variáveis de Ambiente
 Crie um arquivo `.env` na raiz do projeto:
 ```ini
