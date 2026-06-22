@@ -1,8 +1,8 @@
 # AI Vagas 💼🤖
 
-Uma solução inteligente e interativa de Machine Learning ponta a ponta para cálculo de compatibilidade de currículos (Match Score), classificação de adequação (*Fit* / *No Fit*) e análise de lacunas (*Gaps*) de competências técnicas.
+Uma solução inteligente e interativa de Machine Learning local e ponta a ponta para cálculo de compatibilidade de currículos (Match Score), classificação de adequação (*Fit* / *No Fit*) e análise de lacunas (*Gaps*) de competências técnicas.
 
-O sistema foi refatorado para operar sobre bases de dados estáticas de referência em escala de mercado (datasets de 124 mil vagas e competências reais), oferecendo buscas rápidas pré-filtradas por banco e cruzamento semântico de currículos.
+O sistema opera de forma 100% off-line e local sobre bases de dados estáticas de referência em escala de mercado (datasets de 124 mil vagas e competências reais), oferecendo buscas rápidas pré-filtradas por banco e cruzamento semântico local de currículos via TF-IDF calibrado.
 
 ---
 
@@ -11,7 +11,7 @@ O sistema foi refatorado para operar sobre bases de dados estáticas de referên
 - **Matching em Escala com Dataset Real**: O motor busca vagas reais pré-filtradas da base de dados **LinkedIn Job Postings 2023-2024 (Kaggle)**, cruzando o perfil do candidato com milhares de descrições estruturadas.
 - **Mapeamento de Competências Reais**: Integração com o **Job Skill Set Dataset (Kaggle)**, vinculando as competências oficiais requeridas por cargo direto ao ID de cada vaga via banco de dados.
 - **Calibração do Classificador**: Limiar de aderência calibrado localmente com o dataset **Resume-JD-Match (HuggingFace)** para otimização da precisão e sensibilidade da classificação local.
-- **Triagem Semântica Otimizada**: Compara o currículo com as vagas no banco de dados SQLite usando similaridade de cosseno de embeddings gerados pela **API do Gemini** (com **fallback local via TF-IDF**).
+- **Triagem Textual e Frequência Local (TF-IDF)**: Compara o currículo com as vagas no banco de dados SQLite usando similaridade de cosseno de representações de frequência de termos (TF-IDF) locais de alta performance.
 - **Identificação Dinâmica de Gaps (Skills Faltantes)**: O matcher analisa quais das competências exigidas pela vaga estão presentes ou ausentes no currículo do usuário, gerando dicas dinâmicas para otimização.
 - **Interface Streamlit Premium**: Painel visual moderno com visual Glassmorphism, suporte a upload de currículo em PDF, preenchimento direto e barra de progresso interativa para importação rápida de datasets.
 
@@ -21,9 +21,9 @@ O sistema foi refatorado para operar sobre bases de dados estáticas de referên
 
 ```text
 ai-vagas/
-├── .env                  # Chaves de API e configurações locais (ignorado no Git)
+├── .env                  # Configurações locais de banco (ignorado no Git)
 ├── .gitignore            # Proteção contra commit de chaves e dados locais
-├── requirements.txt      # Dependências em Python (sem playwright)
+├── requirements.txt      # Dependências em Python (sem playwright e google-generativeai)
 ├── README.md             # Documentação principal
 ├── data/
 │   ├── vagas.db          # Banco de dados local SQLite contendo as vagas e competências
@@ -35,9 +35,9 @@ ai-vagas/
     ├── app.py            # Interface gráfica Streamlit Premium com importador interativo
     ├── config.py         # Configuração e variáveis do .env
     ├── database.py       # Gerenciador do SQLite com importador por streaming de alto desempenho
-    ├── matcher.py        # Motor de matching (Gemini / TF-IDF local) com join de competências
+    ├── matcher.py        # Motor de matching local por TF-IDF com join de competências
     ├── seed_data.py      # Carga de mock data com vagas estruturadas e competências associadas
-    ├── calibrate.py      # Estudo de calibração de limiares offline usando os parquets locais
+    ├── calibrate.py      # Estudo de calibração de limiares offline usando os parquets locais (Treino e Teste)
     └── verify_matcher.py  # Script de teste funcional rápido do pipeline
 ```
 
@@ -65,12 +65,8 @@ pip install -r requirements.txt
 ```
 
 ### 3. Configurar Variáveis de Ambiente
-Crie um arquivo `.env` na raiz do projeto seguindo o modelo abaixo:
+Crie um arquivo `.env` na raiz do projeto:
 ```ini
-# Chave da API do Gemini (Opcional - Obtenha em: https://aistudio.google.com/)
-# Se ausente, o sistema opera de forma local off-line via TF-IDF calibrado
-GEMINI_API_KEY=SUA_CHAVE_DO_GEMINI
-
 # Banco de dados
 DATABASE_PATH=data/vagas.db
 ```
@@ -95,7 +91,7 @@ Acesse no navegador: `http://localhost:8501`.
 ## 🧪 Calibração e Testes
 
 ### 1. Calibrar Limiar de Similaridade
-Para recalcular a tabela comparativa de precisão/recall de thresholds de TF-IDF e redefinir o limiar ótimo do matcher offline usando os parquets do HuggingFace, execute:
+Para recalcular a tabela comparativa de precisão/recall de thresholds de TF-IDF e redefinir o limiar ótimo do matcher offline usando os parquets de treino e teste, execute:
 ```bash
 python src/calibrate.py
 ```

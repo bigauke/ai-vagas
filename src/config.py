@@ -13,13 +13,6 @@ load_dotenv(BASE_DIR / ".env")
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-# Configurações do Gemini API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    logger.warning("GEMINI_API_KEY não encontrada no arquivo .env. O sistema funcionará em modo local simplificado (TF-IDF).")
-else:
-    logger.info("Chave GEMINI_API_KEY detectada no arquivo .env.")
-
 # Configurações de Armazenamento
 DATABASE_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "data/vagas.db")
 KAGGLE_CSV_PATH = BASE_DIR / os.getenv("KAGGLE_CSV_PATH", "data/linkedin_job_postings.csv")

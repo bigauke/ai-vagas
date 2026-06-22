@@ -7,7 +7,7 @@ from loguru import logger
 # Importa as configurações do projeto e o motor de matching/banco
 import config
 from database import import_job_skills_fast, import_postings_fast, init_db
-from matcher import match_resume_with_database, extract_text_from_pdf, GEMINI_AVAILABLE
+from matcher import match_resume_with_database, extract_text_from_pdf
 
 # Configuração da página do Streamlit
 st.set_page_config(
@@ -220,10 +220,6 @@ with st.sidebar:
     total_jobs = get_total_jobs()
     st.metric("Vagas no Banco SQLite", total_jobs)
     
-    if not GEMINI_AVAILABLE:
-        st.warning("⚠️ Chave GEMINI_API_KEY ausente. Usando processamento local simples.")
-    else:
-        st.success("✅ Conectado com sucesso à API do Gemini.")
 
 # ---- CORPO PRINCIPAL ----
 st.markdown('<div class="hero-title">AI Vagas</div>', unsafe_allow_html=True)
