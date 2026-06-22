@@ -11,6 +11,10 @@ __pycache__/
 # Banco de dados local com vagas
 data/*.db
 
+# Datasets gigantes (CSV e Parquet)
+data/*.csv
+data/*.parquet
+
 # Arquivos temporários de currículos
 temp_resume.pdf
 temp_*.pdf

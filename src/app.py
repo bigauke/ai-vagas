@@ -6,7 +6,7 @@ from loguru import logger
 
 # Importa as configurações do projeto e o motor de matching/banco
 import config
-from database import import_kaggle_csv, init_db
+from database import import_job_skills_fast, import_postings_fast, init_db
 from matcher import match_resume_with_database, extract_text_from_pdf, GEMINI_AVAILABLE
 
 # Configuração da página do Streamlit
@@ -173,23 +173,46 @@ with st.sidebar:
     
     # 📂 Importador de base Kaggle
     st.subheader("📂 Importador de Vagas")
-    csv_path_input = st.text_input("Caminho do CSV Kaggle", value=str(config.KAGGLE_CSV_PATH))
+    postings_path_input = st.text_input("Caminho de postings.csv", value="data/postings.csv")
+    skills_path_input = st.text_input("Caminho de job_skills.csv", value="data/job_skills.csv")
+    max_rows_input = st.number_input("Limite de vagas a importar", min_value=1000, max_value=200000, value=50000, step=1000)
     
-    btn_import = st.button("📥 Importar Vagas do CSV", use_container_width=True)
+    btn_import = st.button("📥 Importar Vagas e Skills", use_container_width=True)
     if btn_import:
-        if not Path(csv_path_input).exists():
-            st.error(f"Arquivo não localizado em: {csv_path_input}. Garanta que baixou a base do Kaggle e colocou os dados na pasta do projeto.")
+        p_path = Path(postings_path_input)
+        s_path = Path(skills_path_input)
+        
+        if not p_path.exists():
+            st.error(f"postings.csv não localizado em: {postings_path_input}")
+        elif not s_path.exists():
+            st.error(f"job_skills.csv não localizado em: {skills_path_input}")
         else:
-            with st.spinner("Importando base de vagas para o SQLite local..."):
-                try:
-                    # Importa um limite para não travar em processamentos longos no Streamlit
-                    result = import_kaggle_csv(csv_path_input, chunk_size=5000, max_rows=50000)
-                    if result["status"] == "success":
-                        st.success(result["message"])
+            status_text = st.empty()
+            progress_bar = st.progress(0.0)
+            
+            try:
+                status_text.text("Passo 1/2: Importando Competências (job_skills.csv)...")
+                progress_bar.progress(0.2)
+                
+                result_skills = import_job_skills_fast(str(s_path))
+                
+                if result_skills["status"] == "success":
+                    status_text.text(f"Competências importadas: {result_skills['imported']}. Passo 2/2: Importando Vagas (postings.csv)...")
+                    progress_bar.progress(0.6)
+                    
+                    result_postings = import_postings_fast(str(p_path), max_rows=int(max_rows_input))
+                    
+                    if result_postings["status"] == "success":
+                        progress_bar.progress(1.0)
+                        status_text.text("Importação concluída com sucesso!")
+                        st.success(f"Importação Concluída!\n- {result_postings['imported']} vagas importadas.\n- {result_skills['imported']} mapeamentos de competências carregados.")
+                        st.rerun()
                     else:
-                        st.error(result["message"])
-                except Exception as e:
-                    st.error(f"Erro ao importar: {e}")
+                        st.error(result_postings["message"])
+                else:
+                    st.error(result_skills["message"])
+            except Exception as e:
+                st.error(f"Erro ao importar: {e}")
                     
     st.markdown("---")
     

@@ -121,28 +121,40 @@ def calculate_semantic_similarity(resume_text: str, jobs: List[Dict[str, Any]]) 
 def analyze_top_job(resume_text: str, job: Dict[str, Any], score_est: float) -> Dict[str, Any]:
     """Realiza análise detalhada da vaga em relação ao currículo usando Gemini API ou heurísticas locais."""
     if not GEMINI_AVAILABLE:
-        # Fallback local simples baseado em heurísticas textuais
+        # Fallback local baseado em heurísticas e correspondência com competências do banco
         logger.info(f"Gerando análise local simplificada para a vaga {job['id']}.")
         
-        # Heurística de Fit/No Fit
-        classification = "Fit" if score_est > 0.15 else "No Fit"
-        score_percentage = int(min(max(score_est * 400, 10), 95)) # Normalização simples para escala 0-100
+        # Heurística de Fit/No Fit (limiar calibrado localmente com o dataset)
+        classification = "Fit" if score_est >= 0.08 else "No Fit"
+        score_percentage = int(min(max(score_est * 500, 5), 98)) # Mapeia score local para escala 0-100
         
-        # Deteção simples de palavras-chave como exemplo de skills
-        keywords_ref = ["python", "machine learning", "sql", "aws", "docker", "excel", "spark", "power bi", "scikit-learn", "tensorflow"]
+        # Obtém as competências associadas à vaga (se existirem no banco)
+        job_skills_str = job.get('skills', '')
+        if job_skills_str:
+            skills_ref = [s.strip() for s in job_skills_str.split(",") if s.strip()]
+        else:
+            # Fallback para palavras-chave gerais se não houver mapeamento de competências
+            possible_kws = ["python", "machine learning", "sql", "aws", "docker", "excel", "spark", "power bi", "scikit-learn", "tensorflow", "react", "typescript", "javascript", "django", "fastapi"]
+            job_desc_lower = job['description'].lower()
+            skills_ref = [kw.capitalize() for kw in possible_kws if kw in job_desc_lower]
+            if not skills_ref:
+                skills_ref = ["Python", "SQL", "Excel"]
+                
         skills_present = []
         skills_missing = []
-        
         resume_lower = resume_text.lower()
-        job_lower = job['description'].lower()
         
-        for kw in keywords_ref:
-            if kw in job_lower:
-                if kw in resume_lower:
-                    skills_present.append(kw.capitalize())
-                else:
-                    skills_missing.append(kw.capitalize())
-                    
+        for skill in skills_ref:
+            skill_clean = skill.strip()
+            if not skill_clean:
+                continue
+            skill_lower = skill_clean.lower()
+            # Busca simples de substring
+            if skill_lower in resume_lower:
+                skills_present.append(skill_clean)
+            else:
+                skills_missing.append(skill_clean)
+                
         # Define as dicas de melhoria dinamicamente com base nas skills faltantes
         if skills_missing:
             tips = [
@@ -183,11 +195,12 @@ def analyze_top_job(resume_text: str, job: Dict[str, Any], score_est: float) -> 
     --- DESCRIÇÃO DA VAGA ---
     Cargo: {job['title']}
     Empresa: {job['company']}
+    Habilidades Requeridas: {job.get('skills', 'Não listadas no banco')}
     Descrição:
     {job['description']}
 
     Por favor, analise a compatibilidade e preencha a estrutura JSON conforme as instruções.
-    Avalie com sinceridade técnica se o candidato realmente tem fit (Fit / No Fit) com base nas exigências da vaga.
+    Avalie com sinceridade técnica se o candidato realmente tem fit (Fit / No Fit) com base nas exigências da vaga e nas Habilidades Requeridas.
     """
     
     try:
@@ -201,7 +214,6 @@ def analyze_top_job(resume_text: str, job: Dict[str, Any], score_est: float) -> 
             )
         )
         
-        # Converte a resposta JSON em dicionário
         analysis_data = json.loads(response.text)
         
         # Junta os metadados da vaga
@@ -227,8 +239,8 @@ def analyze_top_job(resume_text: str, job: Dict[str, Any], score_est: float) -> 
             "url": job["url"],
             "work_type": job.get("work_type", ""),
             "experience_level": job.get("experience_level", ""),
-            "fit_classification": "Fit" if score_est > 0.15 else "No Fit",
-            "score_percentage": int(score_est * 100),
+            "fit_classification": "Fit" if score_est >= 0.08 else "No Fit",
+            "score_percentage": int(min(max(score_est * 500, 5), 98)),
             "skills_present": ["Carregamento falhou"],
             "skills_missing": ["Carregamento falhou"],
             "justification": f"Ocorreu um erro ao processar a análise com a API do Gemini. Score semântico aproximado: {int(score_est * 100)}%",
@@ -241,25 +253,30 @@ def match_resume_with_database(resume_text: str, limit: int = 5, filters: dict =
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Constrói query SQL dinâmica com base nos filtros aplicados
-    query = "SELECT id, title, company, location, description, url, work_type, experience_level FROM jobs WHERE 1=1"
+    # Constrói query SQL dinâmica com base nos filtros aplicados, integrando competências oficiais
+    query = """
+        SELECT j.id, j.title, j.company, j.location, j.description, j.url, j.work_type, j.experience_level, s.skills
+        FROM jobs j
+        LEFT JOIN job_skills s ON j.id = s.job_id
+        WHERE 1=1
+    """
     params = []
     
     if filters:
         if filters.get("title"):
-            query += " AND title LIKE ?"
+            query += " AND j.title LIKE ?"
             params.append(f"%{filters['title']}%")
         if filters.get("location"):
-            query += " AND location LIKE ?"
+            query += " AND j.location LIKE ?"
             params.append(f"%{filters['location']}%")
         if filters.get("company"):
-            query += " AND company LIKE ?"
+            query += " AND j.company LIKE ?"
             params.append(f"%{filters['company']}%")
         if filters.get("work_type"):
-            query += " AND work_type LIKE ?"
+            query += " AND j.work_type LIKE ?"
             params.append(f"%{filters['work_type']}%")
         if filters.get("experience_level"):
-            query += " AND experience_level LIKE ?"
+            query += " AND j.experience_level LIKE ?"
             params.append(f"%{filters['experience_level']}%")
             
     cursor.execute(query, params)

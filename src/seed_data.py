@@ -26,7 +26,8 @@ def seed_database():
             "url": "https://www.linkedin.com/jobs/view/mock_001",
             "work_type": "Hybrid",
             "experience_level": "Mid-Senior level",
-            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "skills": "Python, Machine Learning, Pandas, Scikit-learn, TensorFlow, PyTorch, Docker, Git, FastAPI, Flask, AWS, MLOps"
         },
         {
             "id": "mock_002",
@@ -42,7 +43,8 @@ def seed_database():
             "url": "https://www.linkedin.com/jobs/view/mock_002",
             "work_type": "Remote",
             "experience_level": "Mid-Senior level",
-            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "skills": "Python, Pandas, Numpy, SQL, Statistics, A/B Testing, Power BI, Tableau"
         },
         {
             "id": "mock_003",
@@ -58,7 +60,8 @@ def seed_database():
             "url": "https://www.linkedin.com/jobs/view/mock_003",
             "work_type": "Hybrid",
             "experience_level": "Mid-Senior level",
-            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "skills": "Python, Django, FastAPI, MVC, Microservices, PostgreSQL, Redis, Unit Testing, CI/CD, Docker"
         },
         {
             "id": "mock_004",
@@ -74,7 +77,8 @@ def seed_database():
             "url": "https://www.linkedin.com/jobs/view/mock_004",
             "work_type": "Remote",
             "experience_level": "Associate",
-            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "skills": "JavaScript, TypeScript, React, React Hooks, HTML5, CSS3, Sass, Tailwind CSS, REST APIs, Figma, Scrum"
         },
         {
             "id": "mock_005",
@@ -90,11 +94,13 @@ def seed_database():
             "url": "https://www.linkedin.com/jobs/view/mock_005",
             "work_type": "On-site",
             "experience_level": "Entry level",
-            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "date_scraped": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "skills": "Google Ads, Facebook Ads, SEO, Google Analytics, SEMRush, Copywriting"
         }
     ]
     
     for vaga in vagas:
+        # Insere a vaga
         cursor.execute("""
             INSERT OR REPLACE INTO jobs (id, title, company, location, description, url, date_scraped, work_type, experience_level)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -110,9 +116,18 @@ def seed_database():
             vaga['experience_level']
         ))
         
+        # Insere as competências
+        cursor.execute("""
+            INSERT OR REPLACE INTO job_skills (job_id, skills)
+            VALUES (?, ?)
+        """, (
+            vaga['id'],
+            vaga['skills']
+        ))
+        
     conn.commit()
     conn.close()
-    logger.info("Banco de dados populado com 5 vagas simuladas estruturadas do Kaggle!")
+    logger.info("Banco de dados populado com 5 vagas simuladas e suas competências!")
 
 if __name__ == "__main__":
     seed_database()
